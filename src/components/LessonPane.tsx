@@ -415,8 +415,8 @@ function Attachments({
 
       {!canUpload ? (
         <p className="text-[12px] text-ink-muted">
-          Attaching files needs Blob storage on this deployment — set{" "}
-          <span className="font-mono">BLOB_READ_WRITE_TOKEN</span> and redeploy.
+          Attaching files needs Blob storage on this deployment — add it from the
+          Storage tab and redeploy.
         </p>
       ) : (
       <label

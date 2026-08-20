@@ -208,10 +208,9 @@ export function VideoField({
               Uploading isn&apos;t set up on this deployment
             </p>
             <p className="mt-0.5 text-[12px] text-ink-secondary">
-              There is nowhere to keep the file. Add Blob storage to the project and set{" "}
-              <span className="font-mono">BLOB_READ_WRITE_TOKEN</span>, then redeploy —
-              uploads then go straight there from the browser, at any size. Embedding a
-              link works either way.
+              There is nowhere to keep the file. Add Blob storage to the project from
+              the Storage tab and redeploy — uploads then go straight there from the
+              browser, at any size. Embedding a link works either way.
             </p>
           </div>
         )}

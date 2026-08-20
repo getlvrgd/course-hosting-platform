@@ -26,7 +26,21 @@ import { UPLOAD_PREFIX, type StoredFile } from "./storage-shared";
 
 export { UPLOAD_PREFIX, type StoredFile };
 
-export const blobConfigured = () => Boolean(process.env.BLOB_READ_WRITE_TOKEN);
+/**
+ * Whether blob storage is available, by either of the two ways it authenticates.
+ *
+ *   * `BLOB_READ_WRITE_TOKEN` — a long-lived token, what an older store hands out and
+ *     what you set by hand for a local machine.
+ *   * `BLOB_STORE_ID` — the newer setup, where Vercel proves the deployment's identity
+ *     with a short-lived OIDC token it injects itself. There is no read-write token to
+ *     find, which is exactly why looking only for one reported a correctly configured
+ *     store as "not set up".
+ *
+ * The SDK picks whichever it finds; this only has to agree with it about whether
+ * uploading is possible at all.
+ */
+export const blobConfigured = () =>
+  Boolean(process.env.BLOB_READ_WRITE_TOKEN) || Boolean(process.env.BLOB_STORE_ID);
 
 /**
  * Whether this deployment can accept an upload at all.

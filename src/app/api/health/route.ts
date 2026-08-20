@@ -36,7 +36,7 @@ function authorised(key: string | null) {
 const configNames = () =>
   Object.keys(process.env)
     .filter((name) =>
-      /^(DATABASE|POSTGRES|PG|NEON|DIRECT|AUTH_SECRET|BLOB_)/i.test(name),
+      /^(DATABASE|POSTGRES|PG|NEON|DIRECT|AUTH_SECRET|BLOB_|VERCEL_OIDC)/i.test(name),
     )
     .sort();
 
