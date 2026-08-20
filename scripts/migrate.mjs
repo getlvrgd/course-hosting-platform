@@ -19,18 +19,60 @@ import { MIGRATION_URL_VARS, migrationUrl } from "./database-url.mjs";
 const url = migrationUrl();
 
 if (!url) {
+  /*
+   * What the host *did* inject, by name only.
+   *
+   * "No connection string" has two very different causes and no way to tell them
+   * apart from the outside: nothing was set at all, or something was set under a name
+   * this app does not look for — a custom prefix on a database integration, most
+   * often. Listing what is actually visible turns that into a diagnosis.
+   *
+   * Names only, never values. These are credentials and this output goes into a build
+   * log that is kept.
+   */
+  // Anything named after a database, plus anything that is *some* kind of URL —
+  // because the usual cause is a custom prefix, and the prefix could be anything.
+  // Vercel's own URLs are excluded; they are never a connection string and would only
+  // bury the one line that matters.
+  const NOISE = /^(NEXT_PUBLIC_)?VERCEL_/i;
+  const looksDatabaseish = Object.keys(process.env)
+    .filter(
+      (name) =>
+        !NOISE.test(name) &&
+        (/^(DATABASE|POSTGRES|PG|NEON|DIRECT|SUPABASE|PRISMA)/i.test(name) ||
+          /_URL(_UNPOOLED|_NON_POOLING)?$/i.test(name)),
+    )
+    .sort();
+
   console.error(
     [
       "",
       "  No database connection string, so there is nothing to migrate.",
       "",
-      "  Set one of these as an environment variable and deploy again:",
+      looksDatabaseish.length
+        ? [
+            "  This build CAN see these database-looking variables:",
+            ...looksDatabaseish.map((name) => `    · ${name}`),
+            "",
+            "  None of them is a name this app reads. If one of those is your",
+            "  connection string, the integration was connected with a custom",
+            "  variable prefix — reconnect it with the prefix left empty, or copy",
+            "  the value into DATABASE_URL yourself.",
+          ].join("\n")
+        : "  This build can see NO database variables at all, under any name.",
+      "",
+      "  Set one of these and deploy again:",
       ...MIGRATION_URL_VARS.map((name) => `    · ${name}`),
       "",
       "  On Vercel: Project → Settings → Environment Variables, or attach a",
-      "  Postgres from the Storage tab and it will set them for you. Make sure it",
-      "  is available to the Production environment, and to Preview if you deploy",
-      "  branches.",
+      "  Postgres from the Storage tab and it will set them for you. Two things",
+      "  catch people out:",
+      "",
+      "    · A variable must be ticked for the environment being built — Production",
+      "      for a main-branch deploy, Preview for a branch.",
+      "    · Variables are read when a build STARTS. Adding one does not affect a",
+      "      build already running, or one that started before you added it. Deploy",
+      "      again after setting them.",
       "",
       "  Locally: copy .env.example to .env and fill in DATABASE_URL.",
       "",
