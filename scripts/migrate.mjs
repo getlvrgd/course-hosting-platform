@@ -13,6 +13,8 @@
 import "dotenv/config";
 
 import { spawnSync } from "node:child_process";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 import { MIGRATION_URL_VARS, migrationUrl } from "./database-url.mjs";
 
@@ -81,12 +83,25 @@ if (!url) {
   process.exit(1);
 }
 
-// Passed explicitly rather than left to the config, so the child is migrating the same
-// database this script just checked — no chance of the two disagreeing.
-const result = spawnSync(
-  "prisma",
-  ["migrate", "deploy"],
-  { stdio: "inherit", env: { ...process.env, DATABASE_URL: url }, shell: true },
-);
+/*
+ * `node_modules/.bin` is put on PATH by npm when it runs a script, and by nothing else.
+ * Adding it here means this works when invoked directly — `node scripts/migrate.mjs` —
+ * as well as through `npm run build`, rather than failing with "prisma: command not
+ * found" the first time somebody runs it the other way.
+ */
+const here = path.dirname(fileURLToPath(import.meta.url));
+const binDir = path.join(here, "..", "node_modules", ".bin");
+
+// The URL is passed explicitly rather than left to the config, so the child migrates
+// the same database this script just checked — no chance of the two disagreeing.
+const result = spawnSync("prisma", ["migrate", "deploy"], {
+  stdio: "inherit",
+  env: {
+    ...process.env,
+    DATABASE_URL: url,
+    PATH: `${binDir}${path.delimiter}${process.env.PATH ?? ""}`,
+  },
+  shell: true,
+});
 
 process.exit(result.status ?? 1);

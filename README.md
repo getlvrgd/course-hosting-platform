@@ -344,6 +344,30 @@ signed in where you are.
 `npm run build` runs `prisma generate`, then the migrations, then `next build` — so a
 deploy migrates itself.
 
+### Is the deployment working?
+
+`GET /api/health` answers `{ "ok": true }` when the app can reach its database, and
+503 when it cannot. Add `?key=<your AUTH_SECRET>` and it also reports which
+configuration the deployment can actually see, the row counts, and the *reason* a
+connection failed.
+
+That last part matters more than it sounds. A page that fails to render shows a viewer
+"a server error occurred" and nothing else, and the cause is several clicks deep in a
+hosting dashboard. This says it from inside the deployment:
+
+```
+{ "ok": false, "database": "unreachable",
+  "reason": "…", "configured": ["DATABASE_URL"] }
+```
+
+`configured` lists **names only, never values** — enough to see that `AUTH_SECRET` is
+missing from the environment that is actually serving, which is the single most common
+reason a fresh deploy 500s on login. The key is compared in constant time, and without
+it the endpoint says nothing but `ok`.
+
+**Environment variables are read when a deployment is built.** Adding one does not
+affect a deployment that already exists — you have to deploy again afterwards.
+
 ### `allowScripts`
 
 npm 11.7+ blocks dependencies' install scripts until they are approved, and package.json
