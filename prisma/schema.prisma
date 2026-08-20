@@ -1,0 +1,381 @@
+// Course hosting schema.
+//
+// Five levels, and one join table that carries everything the students tab is for:
+//
+//   Hub     → one offer's whole academy: its own courses, its own students, its own
+//             settings. The owner runs a directory of these and switches between them.
+//   Course  → the tile on that hub's home grid ("Start Here", "AI Foundations")
+//   Chapter → a section inside it, the thing the outline drags around
+//   Lesson  → one video, its writing, its files
+//   LessonProgress → one row per person per lesson, which is where every percentage
+//                    on every screen comes from
+//
+// Real tables all the way down rather than a JSON document on the course. The outline
+// is edited a row at a time — a lesson dragged into another chapter is two positions
+// and a parent id, not a whole-document overwrite — and progress is written by fifty
+// students at once while the owner is editing the same course.
+//
+// What *is* JSON: a lesson's attachments. They are read and written together, always
+// by whoever is editing that one lesson, and the list never needs to be queried across
+// lessons.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id String @id @default(cuid())
+
+  /// Null for an owner or an admin who works across every offer. Set for a student,
+  /// and for an admin deliberately bound to one hub.
+  ///
+  /// This single field is what bounds somebody: carrying one means you reach that hub
+  /// and no other, carrying none means you reach the directory and all of them.
+  hubId String?
+  hub   Hub?    @relation(fields: [hubId], references: [id], onDelete: Cascade)
+
+  email        String @unique
+  name         String
+  passwordHash String
+
+  /// OWNER | ADMIN | STUDENT — see src/lib/options.ts.
+  ///
+  /// The owner is minted by first-run setup and by nothing else. An admin does
+  /// everything the owner does except delete the owner. A student sees courses and
+  /// their own progress, and never learns the admin side exists.
+  role String @default("STUDENT")
+
+  /// Deactivating is how access is revoked; the row stays, so their progress history
+  /// survives and can be read back if they return.
+  isActive Boolean @default(true)
+
+  /// When the password last changed, and the cut-off for sessions.
+  ///
+  /// A session is a signed token with a thirty-day life, so changing a password would
+  /// otherwise do nothing about whoever is already signed in as you — which is the one
+  /// situation in which somebody urgently changes their password. Any token issued
+  /// before this moment is refused, so a change ends every other session at once.
+  passwordChangedAt DateTime?
+
+  /// The last heartbeat from an open page. See src/lib/presence.ts.
+  ///
+  /// Written every half minute by whichever page they have open, which is what lets
+  /// the students tab answer "are they here right now" rather than only "have they
+  /// ever been". Stale by more than a minute means the page is closed.
+  lastSeenAt DateTime?
+
+  /// The last heartbeat where they were actually *doing* something.
+  ///
+  /// The pair is what separates idle from online: both stamps fresh means they are on
+  /// the page and using it; `lastSeenAt` fresh while this one goes stale means the tab
+  /// is open and untouched. One column could not tell those apart, and "open but not
+  /// looking" is the state worth knowing about.
+  lastActiveAt DateTime?
+
+  createdAt DateTime @default(now())
+
+  progress LessonProgress[]
+
+  @@index([role])
+  @@index([hubId])
+}
+
+/// One offer's academy.
+///
+/// Everything below this is scoped by `hubId`, and that scoping is the whole point: the
+/// owner runs several offers side by side with no risk of one offer's students seeing
+/// another's courses, or of a download code minted for one working on the other.
+///
+/// The owner and admins are the exception. Their `hubId` is null, and the helpers in
+/// src/lib/access.ts let them into any hub — which is what makes the directory at /hub
+/// possible in the first place.
+model Hub {
+  id   String @id @default(cuid())
+  name String
+  /// URL segment: /h/<slug>
+  slug String @unique
+
+  /// The line under the name on the directory tile.
+  description String?
+  /// The tile's artwork, held as its own bytes like a course's.
+  thumbnailUrl String?
+  /// A tint from src/lib/options.ts.
+  accent String @default("violet")
+
+  /// LIVE | DRAFT | ARCHIVED — see src/lib/options.ts.
+  ///
+  /// An archived hub closes to its students but stays open to admins, so an offer can
+  /// be retired without anyone losing the record of who did what.
+  status String @default("DRAFT")
+
+  /// Order on the directory.
+  position Int @default(0)
+
+  /// This hub's own settings, shaped by LibrarySettings in src/lib/settings.ts.
+  ///
+  /// A document on the row rather than a table: read and written whole, by one owner at
+  /// a time, and a new setting can be added without a migration. Per-hub rather than
+  /// app-wide because one offer being a paid course that needs its videos protected
+  /// says nothing about another that is free.
+  settings Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users     User[]
+  courses   Course[]
+  codes     DownloadCode[]
+  attempts  DownloadAttempt[]
+
+  @@index([status, position])
+}
+
+/// A code the owner issues so somebody can download a video.
+///
+/// The point is not secrecy — it is a record. A download that needs a code is a
+/// download somebody had to ask for, which turns "who is taking my course files" from
+/// a guess into a list.
+///
+/// The code itself is never stored. What is kept is a SHA-256 of it, which is enough
+/// to recognise the code when it comes back and useless to anyone who reads the table.
+/// SHA rather than bcrypt because these are machine-generated with fifty bits behind
+/// them: bcrypt's slowness exists to frustrate dictionary attacks on human-chosen
+/// passwords, and there is no dictionary for `K7M2-9XPQ-4H`. Guessing is handled by
+/// rate limiting instead — see src/lib/downloads.ts.
+model DownloadCode {
+  id    String @id @default(cuid())
+  hubId String
+  hub   Hub    @relation(fields: [hubId], references: [id], onDelete: Cascade)
+
+  /// Who it was made for, in the owner's words: "Sam", "Cohort 3", "the editor".
+  label String
+
+  /// SHA-256 of the code, hex.
+  codeHash String @unique
+  /// The first few characters, so the owner can tell one row from another. Not enough
+  /// of the code to be worth anything on its own.
+  hint String
+
+  /// How many downloads it is good for. Null is unlimited; one is the default, which
+  /// is what makes the usual case a genuinely single-use code.
+  maxUses   Int?
+  usedCount Int  @default(0)
+
+  expiresAt DateTime?
+  /// Set to withdraw a code that is still in circulation. Kept rather than deleted so
+  /// the attempts that used it still read.
+  revokedAt DateTime?
+
+  createdAt   DateTime @default(now())
+  createdById String?
+
+  attempts DownloadAttempt[]
+
+  @@index([hubId, revokedAt])
+}
+
+/// Every time anybody pressed Download — whether or not they got the file.
+///
+/// The failures are the interesting rows. One person mistyping a code is nothing; the
+/// same account trying six codes in a minute is somebody working at it, and that only
+/// shows up if the refusals are written down too.
+///
+/// Names are copied in rather than only referenced, so the log still reads after an
+/// account is deleted or a course is taken down — the same reason an audit trail
+/// anywhere keeps its own copy of who did what.
+model DownloadAttempt {
+  id    String @id @default(cuid())
+  hubId String
+  hub   Hub    @relation(fields: [hubId], references: [id], onDelete: Cascade)
+
+  userId    String?
+  userName  String
+  userEmail String
+
+  lessonId    String?
+  lessonTitle String
+  courseTitle String
+
+  /// OPENED | GRANTED | ADMIN | NO_CODE | WRONG_CODE | EXPIRED | EXHAUSTED | REVOKED |
+  /// BLOCKED — see src/lib/downloads.ts.
+  outcome String
+
+  /// Which code was used, when one matched. Null when nothing did.
+  codeId String?
+  code   DownloadCode? @relation(fields: [codeId], references: [id], onDelete: SetNull)
+
+  at DateTime @default(now())
+
+  @@index([hubId, at])
+  @@index([userId, at])
+  @@index([outcome])
+}
+
+/// One tile on the grid. A pathway, a course, a library of resources — whatever the
+/// owner decides a box on the home page means.
+model Course {
+  id    String @id @default(cuid())
+  hubId String
+  hub   Hub    @relation(fields: [hubId], references: [id], onDelete: Cascade)
+
+  title String
+  /// URL segment: /h/<hub>/c/<slug>. Stable once handed out, so renaming the course
+  /// does not break a link someone bookmarked — the slug is edited on its own.
+  ///
+  /// Unique per hub rather than globally: two offers may both sensibly have a course
+  /// called "Start Here", and neither should have to be "start-here-2".
+  slug String
+
+  /// The line under the title on the tile.
+  description String?
+
+  /// The tile's artwork, held as its own bytes (a data URL) rather than a link.
+  /// Shrunk in the browser first — see src/components/ImageDrop.tsx.
+  thumbnailUrl String?
+
+  /// PUBLISHED | HIDDEN — see src/lib/options.ts.
+  ///
+  /// Hidden is the "private" state: still fully editable, still reachable by the owner
+  /// and admins, and completely absent for students — both from the grid and from its
+  /// own URL, which 404s for them rather than saying "not for you".
+  visibility String @default("HIDDEN")
+
+  /// A tint from src/lib/options.ts, used for the tile's progress bar and its mark
+  /// when there is no artwork yet.
+  accent String @default("violet")
+
+  /// Order on both grids. Contiguous from 0, rewritten whole on a reorder.
+  position Int @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  chapters Chapter[]
+
+  @@unique([hubId, slug])
+  @@index([hubId, visibility, position])
+}
+
+/// A section of a course. Titles are the owner's own words — "basics 101", "PHASE 2 —
+/// Research & Content" — so nothing here is a fixed vocabulary.
+model Chapter {
+  id       String @id @default(cuid())
+  courseId String
+  course   Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  title    String
+  position Int    @default(0)
+
+  createdAt DateTime @default(now())
+
+  lessons Lesson[]
+
+  @@index([courseId, position])
+}
+
+model Lesson {
+  id        String  @id @default(cuid())
+  chapterId String
+  chapter   Chapter @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+
+  title    String
+  position Int    @default(0)
+
+  /// MULTIMEDIA | PDF — see src/lib/course.ts.
+  ///
+  /// Not a hard split: both kinds carry writing, files and a thumbnail. The kind
+  /// decides what the middle of the lesson is, a player or a document.
+  kind String @default("MULTIMEDIA")
+
+  /// NONE | FILE | EMBED — where the video came from.
+  ///
+  /// FILE is an upload sitting in blob storage and is played by the browser's own
+  /// <video>, which is what makes watched-seconds trackable. EMBED is a YouTube, Loom,
+  /// Vimeo, Wistia or Drive link played in their iframe, where the page cannot see the
+  /// playhead — so those lessons are completed by the button instead.
+  videoKind String @default("NONE")
+  /// The blob URL for an upload, or the share link for an embed.
+  videoUrl  String?
+  /// The original filename, kept so the editor can show what was uploaded.
+  videoName String?
+  /// A thumbnail chosen by hand. Almost always null.
+  ///
+  /// It exists as an override, not as the normal way a lesson gets its picture: a
+  /// video lesson takes its still from the video itself (see `posterUrl`), and having
+  /// to go and find a thumbnail for every one of forty lessons is work nobody should
+  /// be asked to do. Set, it wins over the derived one.
+  thumbnailUrl String?
+
+  /// The still taken from the video, and the reason most lessons need no thumbnail.
+  ///
+  /// Filled the moment a video is attached, by whichever route can actually get one:
+  ///   * an **upload** has a frame grabbed from it in the browser before it is sent,
+  ///     stored here as its own bytes — the file is already in memory at that point,
+  ///     so it costs nothing and needs no server to decode video;
+  ///   * an **embed** has a poster URL resolved from the host — derived straight from
+  ///     the link for YouTube and Drive, and asked for over oEmbed for Loom, Vimeo and
+  ///     Wistia. See src/lib/poster.ts.
+  ///
+  /// Cleared with the video it came from, so a replaced video can never leave the old
+  /// one's still behind.
+  posterUrl String?
+
+  /// Runtime in seconds. Read off the file once it loads, or typed in for an embed,
+  /// and only ever used for display — completion is a row in LessonProgress, never a
+  /// sum of these.
+  durationSeconds Int?
+
+  /// The writing under the player. Plain text with **bold** / *italic* / __underline__
+  /// markers, rendered by src/components/RichText.tsx into React elements rather than
+  /// injected as HTML — so nothing typed into a lesson can become script.
+  content String?
+
+  /// [{ id, name, url, size, type }] — see src/lib/course.ts. One document because the
+  /// list is read and written together by one editor at a time.
+  attachments Json?
+
+  /// Days after the student's account was created before this unlocks. 0 is
+  /// "unlocks immediately", which is the usual case and therefore the default.
+  dripDays Int @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  progress LessonProgress[]
+
+  @@index([chapterId, position])
+}
+
+/// One person, one lesson.
+///
+/// A row exists only once someone has actually done something with the lesson, so the
+/// table stays the size of the work rather than students × lessons. That also makes
+/// every percentage in the app the same arithmetic: rows completed over lessons
+/// visible, counted at read time. Nothing is denormalised onto the user, so a lesson
+/// added to a course on Tuesday correctly moves everyone's figure on Tuesday.
+model LessonProgress {
+  userId   String
+  user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lessonId String
+  lesson   Lesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+
+  /// Null while a lesson is merely started. Set by the player crossing the threshold,
+  /// or by the student pressing the button.
+  completedAt DateTime?
+
+  /// How far into the video they got, for an uploaded file. Resumes playback where
+  /// they left it, and is what "started, not finished" is read from.
+  secondsWatched Int @default(0)
+
+  startedAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@id([userId, lessonId])
+  @@index([lessonId])
+  @@index([userId, completedAt])
+}

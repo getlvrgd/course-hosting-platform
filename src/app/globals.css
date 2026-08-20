@@ -1,0 +1,428 @@
+@import "tailwindcss";
+
+/*
+ * Design tokens.
+ *
+ * Colours come from a validated categorical palette: adjacent slots are
+ * colourblind-safe in both light and dark mode. Dark values are separately chosen
+ * steps for the dark surface, not an automatic inversion.
+ *
+ * Rule followed throughout the app: numbers and labels wear *ink* tokens, never a
+ * series colour. Colour identifies a category via a mark beside the text — it never
+ * carries meaning on its own.
+ */
+
+:root {
+  color-scheme: light;
+
+  --surface-page: #f7f7f5;
+  --surface-1: #fcfcfb;
+  --border-subtle: #e5e4e0;
+  --border-strong: #d3d2cc;
+
+  --text-primary: #0b0b0b;
+  --text-secondary: #52514e;
+  --text-muted: #83827c;
+
+  --series-1: #2a78d6; /* blue */
+  --series-2: #eb6834; /* orange */
+  --series-3: #1baf7a; /* aqua */
+  --series-4: #eda100; /* yellow */
+  --series-5: #e87ba4; /* magenta */
+  --series-6: #008300; /* green */
+  --series-7: #4a3aa7; /* violet */
+  --series-8: #e34948; /* red */
+
+  --status-good: #008300;
+  --status-critical: #e34948;
+
+  --accent: #5b5bd6;
+  --accent-soft: #e9e9fb;
+  --accent-edge: #c9c9f4;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:where(:not([data-theme="light"])) {
+    color-scheme: dark;
+
+    --surface-page: #121211;
+    --surface-1: #1a1a19;
+    --border-subtle: #2e2e2b;
+    --border-strong: #46453f;
+
+    --text-primary: #ffffff;
+    --text-secondary: #c3c2b7;
+    --text-muted: #8e8d84;
+
+    --series-1: #3987e5;
+    --series-2: #d95926;
+    --series-3: #199e70;
+    --series-4: #c98500;
+    --series-5: #d55181;
+    --series-6: #008300;
+    --series-7: #9085e9;
+    --series-8: #e66767;
+
+    --status-good: #35a835;
+    --status-critical: #e66767;
+
+    --accent: #8f8ff0;
+    --accent-soft: #26264d;
+    --accent-edge: #3a3a70;
+  }
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --surface-page: #121211;
+  --surface-1: #1a1a19;
+  --border-subtle: #2e2e2b;
+  --border-strong: #46453f;
+
+  --text-primary: #ffffff;
+  --text-secondary: #c3c2b7;
+  --text-muted: #8e8d84;
+
+  --series-1: #3987e5;
+  --series-2: #d95926;
+  --series-3: #199e70;
+  --series-4: #c98500;
+  --series-5: #d55181;
+  --series-6: #008300;
+  --series-7: #9085e9;
+  --series-8: #e66767;
+
+  --status-good: #35a835;
+  --status-critical: #e66767;
+
+  --accent: #8f8ff0;
+  --accent-soft: #26264d;
+  --accent-edge: #3a3a70;
+}
+
+@theme inline {
+  --color-page: var(--surface-page);
+  --color-surface: var(--surface-1);
+  --color-subtle: var(--border-subtle);
+  --color-strong: var(--border-strong);
+  --color-ink: var(--text-primary);
+  --color-ink-secondary: var(--text-secondary);
+  --color-ink-muted: var(--text-muted);
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-edge: var(--accent-edge);
+  --color-good: var(--status-good);
+  --color-critical: var(--status-critical);
+  --font-sans: var(--type-sans);
+  --font-mono: var(--type-mono);
+}
+
+/*
+ * San Francisco, asked for by name and then via the system UI keyword.
+ *
+ * SF is not redistributable as a webfont — Apple licenses it for use on Apple
+ * platforms — so it is requested from the OS rather than downloaded. `-apple-system`
+ * and `BlinkMacSystemFont` are what resolve to SF in Safari and Chrome on macOS; the
+ * explicit "SF Pro Display"/"SF Pro Text" names pick it up when the design files are
+ * installed locally. Everywhere else this lands on the platform's own UI face.
+ */
+:root {
+  --type-sans:
+    "SF Pro Display", "SF Pro Text", -apple-system, BlinkMacSystemFont, system-ui,
+    "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  --type-mono:
+    ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+  /*
+   * Headings only. --font-display is set by next/font in the root layout; the OS stack
+   * behind it is what renders if the file has not arrived yet, so a heading is never
+   * invisible while a font loads.
+   */
+  --type-display: var(--font-display), var(--type-sans);
+}
+
+/*
+ * The heading spec: Inter, Extra Bold, -8% tracking.
+ *
+ * -0.08em is very tight — that is the point at display sizes, where the letters need
+ * pulling together to read as one shape. It is deliberately applied to h1–h4 as a base
+ * rule AND on the elements themselves, because Tailwind utilities beat element
+ * selectors: without matching classes the utilities already on those headings would win
+ * and the spec would silently do nothing.
+ */
+h1,
+h2,
+h3,
+h4 {
+  font-family: var(--type-display);
+  font-weight: 800;
+  letter-spacing: -0.08em;
+}
+
+body {
+  background: var(--surface-page);
+  color: var(--text-primary);
+  font-family: var(--type-sans);
+  /*
+   * Medium is the base weight, not regular. Every explicit weight in the components
+   * sits one step above where it would normally: labels are semibold, figures and
+   * headings are bold. SF carries that without turning muddy the way a smaller UI
+   * face would.
+   */
+  font-weight: 500;
+  /*
+   * A touch tighter than default. SF is already fairly tight, so this is deliberately
+   * small — enough to pull running text together without letters colliding at 11px.
+   * Headings and figures tighten further via Tailwind's `tracking-tight`.
+   */
+  letter-spacing: -0.012em;
+  /* SF's optical sizing and tighter default tracking are what make it read as SF. */
+  font-optical-sizing: auto;
+  -webkit-font-smoothing: antialiased;
+}
+
+/*
+ * Tile tints.
+ *
+ * Eight pastels the admin can put on a KPI tile to group the board by eye. Each is
+ * derived from the matching categorical hue above rather than picked by hand, so the
+ * tint on a tile and the mark in a chart are the same colour family.
+ *
+ * The dark steps are selected for the dark surface, not an inversion of the light ones:
+ * a pastel behind white text is unreadable, so dark mode gets a deep, low-chroma step of
+ * the same hue instead.
+ *
+ * Three steps per hue: a pale fill, a matching border, and a much darker outline the
+ * admin can switch on per tile when they want the edge to carry weight. The fills are
+ * deliberately soft — a richer set was tried and taken back out, because pale is the
+ * point of them. The outline is where saturation lives, which is also what lets a tile
+ * read as red: a light red is a salmon by colorimetry, since red desaturates toward
+ * pink as lightness rises.
+ *
+ * Contrast was computed, not eyeballed. Against every fill the tile's primary ink clears
+ * 16:1 in light and 13.8:1 in dark, and secondary ink clears 6.6:1 and 7.7:1. Muted ink
+ * would sit near 3.2:1 — below the plain surface's own 3.75:1 — which is why a tinted
+ * tile promotes its sublabel to secondary ink in StatTile.
+ *
+ * Colour here is decoration the admin assigns, never an encoding: the tile's label
+ * carries its meaning, so two tints being close is a cosmetic matter, not a misread.
+ */
+:root {
+  --tile-blue: #dcf1ff;
+  --tile-blue-edge: #b7dcff;
+  --tile-blue-outline: #338bf6;
+  --tile-orange: #ffe6d9;
+  --tile-orange-edge: #ffc9b2;
+  --tile-orange-outline: #e25c23;
+  --tile-aqua: #d6f8e6;
+  --tile-aqua-edge: #abeaca;
+  --tile-aqua-outline: #00a672;
+  --tile-yellow: #ffebd0;
+  --tile-yellow-edge: #f8d2a0;
+  --tile-yellow-outline: #bb7e00;
+  --tile-magenta: #ffe4ef;
+  --tile-magenta-edge: #ffc4d9;
+  --tile-magenta-outline: #dd538d;
+  --tile-green: #dff7dc;
+  --tile-green-edge: #bce7b8;
+  --tile-green-outline: #3aa635;
+  --tile-violet: #eaecff;
+  --tile-violet-edge: #d2d3ff;
+  --tile-violet-outline: #8178f4;
+  --tile-red: #ffe4e0;
+  --tile-red-edge: #ffc6bf;
+  --tile-red-outline: #e55551;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:where(:not([data-theme="light"])) {
+    --tile-blue: #172c46;
+    --tile-blue-edge: #274770;
+    --tile-blue-outline: #2d74ca;
+    --tile-orange: #422115;
+    --tile-orange-edge: #6a3623;
+    --tile-orange-outline: #ba4e25;
+    --tile-aqua: #093423;
+    --tile-aqua-edge: #0c533a;
+    --tile-aqua-outline: #008a60;
+    --tile-yellow: #3c2606;
+    --tile-yellow-edge: #603f07;
+    --tile-yellow-outline: #9e6700;
+    --tile-magenta: #411f2a;
+    --tile-magenta-edge: #683244;
+    --tile-magenta-outline: #b7476f;
+    --tile-green: #1a3218;
+    --tile-green-edge: #2b5128;
+    --tile-green-outline: #358930;
+    --tile-violet: #2a2745;
+    --tile-violet-edge: #443f6f;
+    --tile-violet-outline: #7063c7;
+    --tile-red: #431f1f;
+    --tile-red-edge: #6b3332;
+    --tile-red-outline: #bc484a;
+  }
+}
+
+:root[data-theme="dark"] {
+  --tile-blue: #172c46;
+  --tile-blue-edge: #274770;
+  --tile-blue-outline: #2d74ca;
+  --tile-orange: #422115;
+  --tile-orange-edge: #6a3623;
+  --tile-orange-outline: #ba4e25;
+  --tile-aqua: #093423;
+  --tile-aqua-edge: #0c533a;
+  --tile-aqua-outline: #008a60;
+  --tile-yellow: #3c2606;
+  --tile-yellow-edge: #603f07;
+  --tile-yellow-outline: #9e6700;
+  --tile-magenta: #411f2a;
+  --tile-magenta-edge: #683244;
+  --tile-magenta-outline: #b7476f;
+  --tile-green: #1a3218;
+  --tile-green-edge: #2b5128;
+  --tile-green-outline: #358930;
+  --tile-violet: #2a2745;
+  --tile-violet-edge: #443f6f;
+  --tile-violet-outline: #7063c7;
+  --tile-red: #431f1f;
+  --tile-red-edge: #6b3332;
+  --tile-red-outline: #bc484a;
+}
+
+/* Columns of numbers align; standalone display figures keep proportional widths. */
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Wide content — tables, boards — scrolls inside its own box so the page never does. */
+.scroll-x {
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+}
+
+/*
+ * The board.
+ *
+ * One horizontal scroller holding fixed-width columns, each with its own vertical
+ * scroller for the cards. Two axes rather than one: a nine-column pipeline has to run
+ * off the side of the screen, but a column with thirty cards in it must not push the
+ * page itself taller than the viewport, or the other columns' headers scroll away.
+ */
+.board-scroll {
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: thin;
+}
+
+.board-column {
+  /* Trello's own column is 272px. This is a touch wider, because our card titles are
+     video titles rather than "Buy milk". */
+  width: 288px;
+  min-width: 288px;
+}
+
+.board-cards {
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  scrollbar-width: thin;
+}
+
+/* The card being dragged. Kept subtle — the drop target is what needs to shout. */
+.card-dragging {
+  opacity: 0.4;
+}
+
+/*
+ * The column a card is hovering over. An inset ring rather than an outline so the
+ * highlight never overlaps the neighbouring column at this width.
+ */
+.column-drop {
+  box-shadow: inset 0 0 0 2px var(--accent);
+}
+
+/* A column this person's role may not move a card into, while a drag is in flight. */
+.column-blocked {
+  opacity: 0.45;
+}
+
+/*
+ * Trello's own affordance: the whole card is a button, and the pencil in its corner
+ * only appears on hover. Kept as a class so it works for focus-within too, which is
+ * how it is reached from the keyboard.
+ */
+.card-tools {
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+
+.board-card:hover .card-tools,
+.board-card:focus-within .card-tools {
+  opacity: 1;
+}
+
+@media (hover: none) {
+  /* No hover to reveal it on a phone, so it is simply always there. */
+  .card-tools {
+    opacity: 1;
+  }
+}
+
+/*
+ * Logo variant switching, using the same two scopes as the colour tokens: the media
+ * query covers the OS setting, the data-theme scope covers the in-page toggle and must
+ * win in both directions.
+ */
+.logo-dark {
+  display: none;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:where(:not([data-theme="light"])) .logo-light {
+    display: none;
+  }
+  :root:where(:not([data-theme="light"])) .logo-dark {
+    display: block;
+  }
+}
+
+:root[data-theme="dark"] .logo-light {
+  display: none;
+}
+:root[data-theme="dark"] .logo-dark {
+  display: block;
+}
+:root[data-theme="light"] .logo-light {
+  display: block;
+}
+:root[data-theme="light"] .logo-dark {
+  display: none;
+}
+
+/*
+ * The live presence dot.
+ *
+ * A slow pulse rather than a flash: it has to be findable in a column of grey dots
+ * without pulling the eye off the names, which are what the table is actually for.
+ * Only "online" gets it — idle and offline are steady, so movement means one thing.
+ */
+@keyframes presence-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--status-good) 55%, transparent);
+  }
+  70% {
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--status-good) 0%, transparent);
+  }
+}
+
+.presence-live {
+  animation: presence-pulse 2.4s ease-out infinite;
+}
+
+/* Anyone who has asked their system not to animate gets a plain dot. */
+@media (prefers-reduced-motion: reduce) {
+  .presence-live {
+    animation: none;
+  }
+}
