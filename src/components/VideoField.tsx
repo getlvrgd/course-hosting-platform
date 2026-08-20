@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 
 import { copyVideoFrom, listVideoSources, type LessonPatchInput } from "@/app/actions/courses";
-import { formatDuration, posterOf, type LessonNode } from "@/lib/course";
+import { formatDuration, posterOf, watchPath, type LessonNode } from "@/lib/course";
 import { EMBEDDABLE, toEmbed } from "@/lib/embed";
 import { probeVideo, uploadFile } from "@/lib/upload-client";
 
@@ -287,7 +287,15 @@ export function VideoField({
 
 /** What the lesson will look like to a student, minus the progress tracking. */
 function Preview({ lesson }: { lesson: LessonNode }) {
-  const url = lesson.videoUrl ?? "";
+  /*
+   * An uploaded file plays through this app, exactly as it does for a student. The
+   * storage URL is private and answers 403 to a browser, so previewing it here would
+   * show the editor a broken player for a video that is perfectly fine.
+   */
+  const url =
+    lesson.videoKind === "FILE" && lesson.videoUrl
+      ? watchPath(lesson.id)
+      : (lesson.videoUrl ?? "");
 
   if (lesson.kind === "PDF") {
     return (

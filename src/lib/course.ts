@@ -153,16 +153,23 @@ export const watchPath = (lessonId: string) => `/api/watch/${lessonId}`;
 /**
  * The lesson as it should be handed to the player.
  *
- * When uploads are protected this swaps the storage URL out **on the server**, before
- * anything is serialised — which is the whole point. Leaving the real URL in the page
- * and merely hiding the download button would be theatre: it sits in the network tab
- * either way, and a blob URL works for anyone in the world who has it.
+ * An uploaded video **always** plays through this app, whatever the download setting
+ * says. Two reasons, and either alone would be enough:
+ *
+ *   * Files are stored privately, so the storage URL answers 403 to a browser. It
+ *     could not be put in a `<video>` tag even if we wanted to.
+ *   * The swap happens on the server, before anything is serialised, so the storage
+ *     URL never reaches the page at all. Hiding a download button while leaving the
+ *     real URL in the markup would be theatre — it sits in the network tab either way.
+ *
+ * The download setting therefore decides what a student may *do* — save it, ask for a
+ * code, or nothing — and no longer has to carry the job of keeping the URL secret.
  *
  * Embeds are returned untouched. A YouTube or Loom video is played by its own host in
  * its own iframe, and nothing this app does can change what that host allows.
  */
-export function forPlayer<T extends LessonNode>(lesson: T, protect: boolean): T {
-  if (!protect || lesson.videoKind !== "FILE" || !lesson.videoUrl) return lesson;
+export function forPlayer<T extends LessonNode>(lesson: T): T {
+  if (lesson.videoKind !== "FILE" || !lesson.videoUrl) return lesson;
   return { ...lesson, videoUrl: watchPath(lesson.id) };
 }
 

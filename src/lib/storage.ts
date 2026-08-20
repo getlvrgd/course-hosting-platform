@@ -69,6 +69,22 @@ export const MAX_UPLOAD_BYTES = 2_000_000_000;
  * .mov that Safari plays and Chrome does not is still worth storing and still worth
  * offering as a download.
  */
+/**
+ * Is this URL a file in our blob store?
+ *
+ * Everything uploaded there is **private**: the store refuses public blobs outright,
+ * and fetching a private blob's URL without credentials answers 403. So a blob URL is
+ * never something to put in an `<img>` or a `<video>` — it has to be read with the SDK
+ * and streamed back by this app, which is what src/lib/serve.ts does.
+ *
+ * That is a better arrangement than it sounds. It is the leak the download settings
+ * could only ever paper over: a public blob URL, once copied, works for anyone in the
+ * world forever. A private one is worthless without a session here.
+ */
+export const isBlobUrl = (url: string) =>
+  /^https:\/\/[^/]*\.(public\.)?blob\.vercel-storage\.com\//.test(url) ||
+  /^https:\/\/[^/]*\.blob\.vercel-storage\.com\//.test(url);
+
 export const ATTACHMENT_ACCEPT =
   "application/pdf,image/*,video/*,audio/*,text/*,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip,.csv";
 

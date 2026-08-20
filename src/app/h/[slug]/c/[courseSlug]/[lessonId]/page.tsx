@@ -88,7 +88,7 @@ export default async function LessonPage({
             <LessonPlayer
               // Swapped here, on the server: with protection on, the storage URL never
               // reaches the browser at all rather than merely being hidden from it.
-              lesson={forPlayer(lesson, isProtected(downloads))}
+              lesson={forPlayer(lesson)}
               complete={progress.done.has(lesson.id)}
               resumeAt={progress.watched.get(lesson.id) ?? 0}
               protect={isProtected(downloads)}

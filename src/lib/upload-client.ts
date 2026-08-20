@@ -21,7 +21,10 @@ export async function uploadFile(
 ): Promise<StoredFile> {
   if (options.blob) {
     const result = await upload(`${UPLOAD_PREFIX}/${file.name}`, file, {
-      access: "public",
+      // Private, always. The store refuses public blobs, and a private one is
+      // worthless to anyone without a session here — which is the point. Everything
+      // uploaded is served back through /api/watch and /api/attachment.
+      access: "private",
       handleUploadUrl: "/api/upload",
       onUploadProgress: ({ percentage }) => options.onProgress?.(percentage / 100),
     });

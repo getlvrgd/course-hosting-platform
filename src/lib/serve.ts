@@ -4,7 +4,9 @@ import { createReadStream } from "node:fs";
 import { stat } from "node:fs/promises";
 import { Readable } from "node:stream";
 
-import { localPathFor } from "./storage";
+import { get } from "@vercel/blob";
+
+import { isBlobUrl, localPathFor } from "./storage";
 
 /**
  * Handing a stored file back to the browser.
@@ -114,8 +116,13 @@ export async function serveLocalFile(
 /**
  * Streams a file that lives in blob storage back through this app.
  *
- * The response is piped rather than buffered, and the Range header is passed straight
- * through, so seeking works and a two-gigabyte lesson never has to fit in memory.
+ * Blobs here are **private** — fetching one's URL without credentials answers 403 — so
+ * they are read with the SDK, which authenticates, rather than with a plain fetch. The
+ * Range header is passed along so a student can drag the scrubber of an hour-long
+ * lesson without re-downloading it, and the body is piped rather than buffered so a
+ * two-gigabyte video never has to fit in memory.
+ *
+ * Anything that is not one of ours — a link somebody pasted — is fetched plainly.
  */
 export async function proxyRemoteFile(
   url: string,
@@ -124,12 +131,43 @@ export async function proxyRemoteFile(
 ): Promise<Response> {
   const range = request.headers.get("range");
 
+  if (isBlobUrl(url)) {
+    try {
+      const result = await get(url, {
+        access: "private",
+        ...(range ? { headers: { Range: range } } : {}),
+      });
+      if (!result || !result.stream) {
+        return new Response("Not found", { status: 404 });
+      }
+
+      const from = result.headers;
+      const headers: Record<string, string> = {
+        "Content-Type": from?.get("content-type") ?? contentType(url),
+        "Accept-Ranges": "bytes",
+        "Cache-Control": "private, max-age=3600",
+        ...extraHeaders,
+      };
+      const length = from?.get("content-length");
+      if (length) headers["Content-Length"] = length;
+      // Present only when the range was honoured, which is what makes this a 206.
+      const contentRange = from?.get("content-range");
+      if (contentRange) headers["Content-Range"] = contentRange;
+
+      return new Response(result.stream, {
+        status: contentRange ? 206 : 200,
+        headers,
+      });
+    } catch (error) {
+      console.error("[serve] could not read a private blob:", error);
+      return new Response("Upstream unavailable", { status: 502 });
+    }
+  }
+
   let upstream: Response;
   try {
     upstream = await fetch(url, {
       headers: range ? { Range: range } : undefined,
-      // The stored object never changes — a new upload gets a new URL — so anything in
-      // front of this app may keep it.
       cache: "no-store",
     });
   } catch {

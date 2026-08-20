@@ -107,7 +107,9 @@ export function LessonPlayer({
             {lesson.attachments.map((file) => (
               <li key={file.id}>
                 <a
-                  href={file.url}
+                  // Through this app, not at the storage URL — files are kept
+                  // privately and that URL answers 403 to a browser.
+                  href={`/api/attachment/${lesson.id}/${file.id}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center gap-2 rounded-lg border border-subtle bg-surface px-3 py-2 transition-colors hover:border-strong"

@@ -388,7 +388,7 @@ function Attachments({
                 {markFor(file.type, file.name)}
               </span>
               <a
-                href={file.url}
+                href={`/api/attachment/${lesson.id}/${file.id}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="min-w-0 flex-1 truncate text-[13px] font-semibold text-ink hover:text-accent"

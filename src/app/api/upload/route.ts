@@ -1,7 +1,7 @@
 import { handleUpload, type HandleUploadBody } from "@vercel/blob/client";
 
 import { requireAnyAdmin } from "@/lib/access";
-import { blobConfigured, MAX_UPLOAD_BYTES, UPLOAD_PREFIX } from "@/lib/storage";
+import { blobConfigured, MAX_UPLOAD_BYTES } from "@/lib/storage";
 
 /**
  * The token exchange for a direct-to-blob upload.
@@ -40,7 +40,6 @@ export async function POST(request: Request) {
         maximumSizeInBytes: MAX_UPLOAD_BYTES,
         // Two people uploading `final.mp4` on the same afternoon must not collide.
         addRandomSuffix: true,
-        pathname: UPLOAD_PREFIX,
       }),
       onUploadCompleted: async () => {
         // Nothing to do: the lesson row is written by the editor's own save once the

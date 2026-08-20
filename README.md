@@ -399,6 +399,61 @@ sitting right there attached to the project. `scripts/database-url.mjs` accepts 
 them, preferring a **direct** connection for migrations (they take advisory locks a
 transaction-mode pooler cannot carry) and a **pooled** one for the running app.
 
+**Uploads need Blob storage on Vercel**, and everything in it is **private**.
+
+A Vercel Blob store created now refuses public blobs outright — `access: 'public'` is
+an error — and fetching a private blob's URL without credentials answers **403**. So a
+storage URL is never something to put in a `<video>` or an `<a href>`: uploads are read
+with the SDK and streamed back by this app, through `/api/watch/<lessonId>` for video
+and `/api/attachment/<lessonId>/<id>` for files.
+
+That is better than the alternative rather than a workaround. It closes the hole the
+download settings could only paper over: a *public* blob URL, once copied out of the
+network tab, works for anyone in the world forever. A private one is worthless without
+a session here. So the download setting now decides what a student may **do** — save
+it, ask for a code, or nothing — and no longer carries the job of keeping a URL secret.
+
+Two things follow:
+
+- **`BLOB_READ_WRITE_TOKEN` is required**, not optional. The client upload flow resolves
+  one as its first act and throws without it, whatever else is configured — a store
+  connected with only `BLOB_STORE_ID` and OIDC cannot mint browser upload tokens. Take
+  it from the store's **.env.local** tab in Vercel.
+- **Every byte of video goes through the function.** There is no CDN path for a private
+  blob, so the bandwidth is yours in all three download modes, not only the protected
+  ones.
+
+### `allowScripts`
+
+npm 11.7+ blocks dependencies' install scripts until they are approved, and package.json
+carries that approval list. Six packages need theirs to run: `@prisma/engines` and
+`prisma` place the Prisma binaries, `esbuild`, `sharp` and `unrs-resolver` fetch native
+ones, and `fsevents` is macOS file watching.
+
+The entries are **pinned to exact versions**, which is the point rather than an
+annoyance — a dependency bump re-raises the prompt so a new version's install script
+gets looked at rather than inherited. Run `npm approve-scripts <pkg>` after an upgrade
+to re-approve, or `npm deny-scripts <pkg>` if it should not be running one.
+
+### Deploying to Vercel
+
+| | |
+| --- | --- |
+| `DATABASE_URL` | **Required.** Attach a Postgres from the Storage tab and it sets this for you |
+| `AUTH_SECRET` | **Required.** 32+ characters. Sessions are signed with it |
+| `BLOB_READ_WRITE_TOKEN` | Required if you upload videos — see *Where the files go* |
+
+Set them for **Production**, and for **Preview** too if you deploy branches; a build
+with none of them fails at the migration step, by design, rather than shipping an app
+that cannot reach its own database.
+
+Hosts disagree about what to call the connection string. Vercel's Postgres and Neon
+integrations publish a family of `POSTGRES_*` names and may not set `DATABASE_URL` at
+all — which is how a deploy ends up saying *connection url is empty* with a database
+sitting right there attached to the project. `scripts/database-url.mjs` accepts any of
+them, preferring a **direct** connection for migrations (they take advisory locks a
+transaction-mode pooler cannot carry) and a **pooled** one for the running app.
+
 **Uploads need Blob storage on Vercel.** Two reasons, and the second is the one that
 bites: there is no disk to write to, *and* a serverless function's request body is
 capped at a few megabytes — so a video posted to this app is refused by the platform
