@@ -39,7 +39,23 @@ export async function uploadFile(
   const response = await fetch("/api/upload/local", { method: "POST", body: form });
   if (!response.ok) {
     const body = (await response.json().catch(() => null)) as { error?: string } | null;
-    throw new Error(body?.error ?? "That upload didn't go through.");
+    if (body?.error) throw new Error(body.error);
+
+    /*
+     * No JSON back means this never reached the app. A serverless platform caps the
+     * body of a request to a function at a few megabytes and rejects anything larger
+     * itself, with its own error page — so a video fails here every time while a
+     * small attachment goes through, which is a baffling thing to be told "didn't go
+     * through" about.
+     */
+    if (response.status === 413) {
+      throw new Error(
+        "This deployment can't accept a file that size. Add Blob storage and uploads go straight there instead, with no limit worth worrying about.",
+      );
+    }
+    throw new Error(
+      `That upload didn't go through (${response.status}). If this is a large file, the deployment needs Blob storage.`,
+    );
   }
   options.onProgress?.(1);
   return (await response.json()) as StoredFile;

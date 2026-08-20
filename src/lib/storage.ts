@@ -28,6 +28,21 @@ export { UPLOAD_PREFIX, type StoredFile };
 
 export const blobConfigured = () => Boolean(process.env.BLOB_READ_WRITE_TOKEN);
 
+/**
+ * Whether this deployment can accept an upload at all.
+ *
+ * With blob storage, always — the browser sends the file straight there and this app
+ * only hands out a token. Without it, only where there is a disk that survives the
+ * request: a laptop, or a host with a volume mounted at `UPLOAD_DIR`.
+ *
+ * A serverless host has neither. Worse, its request bodies are capped at a few
+ * megabytes, so a video posted to this app is refused by the platform before any code
+ * here runs — which is why the editor asks this question up front and says so, rather
+ * than offering an Upload button that fails on a file the size of a lesson.
+ */
+export const uploadsPossible = () =>
+  blobConfigured() || Boolean(process.env.UPLOAD_DIR) || !process.env.VERCEL;
+
 /** Refused before anything is written. Generous, because these are lesson videos. */
 export const MAX_UPLOAD_BYTES = 2_000_000_000;
 

@@ -399,9 +399,17 @@ sitting right there attached to the project. `scripts/database-url.mjs` accepts 
 them, preferring a **direct** connection for migrations (they take advisory locks a
 transaction-mode pooler cannot carry) and a **pooled** one for the running app.
 
-**Uploads need Blob storage on Vercel.** There is no disk to write to, so the local
-upload path refuses with a message saying so rather than writing to a `/tmp` that is
-gone by the time a student opens the lesson.
+**Uploads need Blob storage on Vercel.** Two reasons, and the second is the one that
+bites: there is no disk to write to, *and* a serverless function's request body is
+capped at a few megabytes — so a video posted to this app is refused by the platform
+before any code here runs. A small attachment sneaks through; a lesson never does.
+
+So the editor asks up front. With no storage configured it does not offer an Upload
+button at all — it says what to set instead. Embedding a YouTube or Loom link works
+either way.
+
+Add Blob from the Storage tab, connect it to the project, and redeploy. Uploads then go
+**straight from the browser to Blob**, never through the function, at any size.
 
 ## Look
 

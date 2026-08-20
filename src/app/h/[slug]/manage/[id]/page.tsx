@@ -9,7 +9,7 @@ import { requireHubAdmin } from "@/lib/access";
 import { isOwner } from "@/lib/auth";
 import { loadTree } from "@/lib/catalog";
 import { courseSummary } from "@/lib/course";
-import { blobConfigured } from "@/lib/storage";
+import { blobConfigured, uploadsPossible } from "@/lib/storage";
 
 export const dynamic = "force-dynamic";
 
@@ -62,6 +62,7 @@ export default async function CourseEditorPage({
         hubId={hub.id}
         basePath={`/h/${slug}/c/${tree.slug}`}
         blob={blobConfigured()}
+        canUpload={uploadsPossible()}
       />
 
       {isOwner(actor) && (

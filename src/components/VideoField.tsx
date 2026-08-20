@@ -34,12 +34,15 @@ export function VideoField({
   lesson,
   hubId,
   blob,
+  canUpload,
   onPatch,
 }: {
   lesson: LessonNode;
   /** Scopes "paste from another lesson" to this offer. */
   hubId: string;
   blob: boolean;
+  /** False where this deployment has nowhere to put a file — see uploadsPossible. */
+  canUpload: boolean;
   onPatch: (patch: LessonPatchInput, immediate?: boolean) => void;
 }) {
   const [panel, setPanel] = useState<Panel>("none");
@@ -173,28 +176,45 @@ export function VideoField({
       </p>
 
       <div className="mx-auto mt-4 max-w-md space-y-2">
-        <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-subtle bg-page px-3 py-2.5 text-left transition-colors hover:border-strong">
-          <span aria-hidden className="mt-0.5 text-[13px]">
-            ⬆
-          </span>
-          <span className="min-w-0">
-            <span className="block text-[13px] font-bold text-ink">
-              Upload {isPdf ? "PDF" : "video"}
+{/* Offered only where it can actually work. A deployment with no file storage
+            would take the file, be refused by the platform for its size, and leave
+            somebody wondering what they did wrong. */}
+        {canUpload ? (
+          <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-subtle bg-page px-3 py-2.5 text-left transition-colors hover:border-strong">
+            <span aria-hidden className="mt-0.5 text-[13px]">
+              ⬆
             </span>
-            <span className="block text-[12px] text-ink-secondary">
-              {isPdf ? "Bring your own .pdf" : "Bring your own .mov, .mp4, etc."}
+            <span className="min-w-0">
+              <span className="block text-[13px] font-bold text-ink">
+                Upload {isPdf ? "PDF" : "video"}
+              </span>
+              <span className="block text-[12px] text-ink-secondary">
+                {isPdf ? "Bring your own .pdf" : "Bring your own .mov, .mp4, etc."}
+              </span>
             </span>
-          </span>
-          <input
-            type="file"
-            accept={isPdf ? "application/pdf,.pdf" : "video/*"}
-            className="sr-only"
-            onChange={(event) => {
-              void take(event.target.files?.[0]);
-              event.target.value = "";
-            }}
-          />
-        </label>
+            <input
+              type="file"
+              accept={isPdf ? "application/pdf,.pdf" : "video/*"}
+              className="sr-only"
+              onChange={(event) => {
+                void take(event.target.files?.[0]);
+                event.target.value = "";
+              }}
+            />
+          </label>
+        ) : (
+          <div className="rounded-xl border border-dashed border-subtle bg-page px-3 py-2.5">
+            <p className="text-[13px] font-bold text-ink-muted">
+              Uploading isn&apos;t set up on this deployment
+            </p>
+            <p className="mt-0.5 text-[12px] text-ink-secondary">
+              There is nowhere to keep the file. Add Blob storage to the project and set{" "}
+              <span className="font-mono">BLOB_READ_WRITE_TOKEN</span>, then redeploy —
+              uploads then go straight there from the browser, at any size. Embedding a
+              link works either way.
+            </p>
+          </div>
+        )}
 
         <button
           type="button"

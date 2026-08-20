@@ -50,6 +50,7 @@ export function CourseEditor({
   hubId,
   basePath,
   blob,
+  canUpload,
 }: {
   initial: CourseTree;
   /** The offer this course belongs to — scopes the "paste from another lesson" list. */
@@ -58,6 +59,8 @@ export function CourseEditor({
   basePath: string;
   /** Whether uploads go straight to blob storage or to the local dev disk. */
   blob: boolean;
+  /** False where this deployment has nowhere to put a file — see uploadsPossible. */
+  canUpload: boolean;
 }) {
   const [tree, setTree] = useState(initial);
   const [seen, setSeen] = useState(initial);
@@ -217,6 +220,7 @@ export function CourseEditor({
             basePath={basePath}
             hubId={hubId}
             blob={blob}
+            canUpload={canUpload}
             saveState={saveState}
             onPatch={patchLesson}
             onFlush={flush}

@@ -37,6 +37,7 @@ export function LessonPane({
   basePath,
   hubId,
   blob,
+  canUpload,
   saveState,
   onPatch,
   onFlush,
@@ -47,6 +48,7 @@ export function LessonPane({
   basePath: string;
   hubId: string;
   blob: boolean;
+  canUpload: boolean;
   saveState: "idle" | "saving" | "saved" | "error";
   onPatch: (lessonId: string, patch: LessonPatchInput, immediate?: boolean) => void;
   onFlush: () => Promise<void>;
@@ -92,7 +94,13 @@ export function LessonPane({
         </div>
 
         <div className="mt-4">
-          <VideoField lesson={lesson} hubId={hubId} blob={blob} onPatch={patch} />
+          <VideoField
+            lesson={lesson}
+            hubId={hubId}
+            blob={blob}
+            canUpload={canUpload}
+            onPatch={patch}
+          />
         </div>
 
         <div className="mt-6 grid gap-6 sm:grid-cols-2">
@@ -131,6 +139,7 @@ export function LessonPane({
           <Attachments
             lesson={lesson}
             blob={blob}
+            canUpload={canUpload}
             onChange={(attachments) => patch({ attachments }, true)}
           />
         </div>
@@ -331,10 +340,12 @@ function SaveMark({ state }: { state: "idle" | "saving" | "saved" | "error" }) {
 function Attachments({
   lesson,
   blob,
+  canUpload,
   onChange,
 }: {
   lesson: LessonNode;
   blob: boolean;
+  canUpload: boolean;
   onChange: (attachments: Attachment[]) => void;
 }) {
   const [busy, setBusy] = useState(false);
@@ -402,6 +413,12 @@ function Attachments({
         </ul>
       )}
 
+      {!canUpload ? (
+        <p className="text-[12px] text-ink-muted">
+          Attaching files needs Blob storage on this deployment — set{" "}
+          <span className="font-mono">BLOB_READ_WRITE_TOKEN</span> and redeploy.
+        </p>
+      ) : (
       <label
         className={`inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-dashed border-subtle px-3 py-2 text-[13px] font-semibold text-ink-secondary transition-colors hover:border-strong hover:text-ink ${
           busy ? "opacity-60" : ""
@@ -421,6 +438,7 @@ function Attachments({
           }}
         />
       </label>
+      )}
 
       {error && (
         <p role="alert" className="mt-1 text-[12px] text-critical">
