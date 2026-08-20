@@ -344,6 +344,18 @@ signed in where you are.
 `npm run build` runs `prisma generate`, then the migrations, then `next build` — so a
 deploy migrates itself.
 
+### `allowScripts`
+
+npm 11.7+ blocks dependencies' install scripts until they are approved, and package.json
+carries that approval list. Six packages need theirs to run: `@prisma/engines` and
+`prisma` place the Prisma binaries, `esbuild`, `sharp` and `unrs-resolver` fetch native
+ones, and `fsevents` is macOS file watching.
+
+The entries are **pinned to exact versions**, which is the point rather than an
+annoyance — a dependency bump re-raises the prompt so a new version's install script
+gets looked at rather than inherited. Run `npm approve-scripts <pkg>` after an upgrade
+to re-approve, or `npm deny-scripts <pkg>` if it should not be running one.
+
 ### Deploying to Vercel
 
 | | |
