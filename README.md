@@ -341,8 +341,31 @@ password in a hurry. Any token issued before the change is refused (`passwordCha
 on the user row); the session doing the changing is re-issued afterwards, so you stay
 signed in where you are.
 
-`npm run build` runs `prisma generate && prisma migrate deploy && next build`, so a
+`npm run build` runs `prisma generate`, then the migrations, then `next build` — so a
 deploy migrates itself.
+
+### Deploying to Vercel
+
+| | |
+| --- | --- |
+| `DATABASE_URL` | **Required.** Attach a Postgres from the Storage tab and it sets this for you |
+| `AUTH_SECRET` | **Required.** 32+ characters. Sessions are signed with it |
+| `BLOB_READ_WRITE_TOKEN` | Required if you upload videos — see *Where the files go* |
+
+Set them for **Production**, and for **Preview** too if you deploy branches; a build
+with none of them fails at the migration step, by design, rather than shipping an app
+that cannot reach its own database.
+
+Hosts disagree about what to call the connection string. Vercel's Postgres and Neon
+integrations publish a family of `POSTGRES_*` names and may not set `DATABASE_URL` at
+all — which is how a deploy ends up saying *connection url is empty* with a database
+sitting right there attached to the project. `scripts/database-url.mjs` accepts any of
+them, preferring a **direct** connection for migrations (they take advisory locks a
+transaction-mode pooler cannot carry) and a **pooled** one for the running app.
+
+**Uploads need Blob storage on Vercel.** There is no disk to write to, so the local
+upload path refuses with a message saying so rather than writing to a `/tmp` that is
+gone by the time a student opens the lesson.
 
 ## Look
 

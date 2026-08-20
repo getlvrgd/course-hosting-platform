@@ -18,6 +18,25 @@ export async function POST(request: Request) {
     );
   }
 
+  /*
+   * A serverless host has no disk to write to, and the one it appears to have is
+   * wiped between requests. Refusing here with something readable beats an EROFS from
+   * three frames down, and beats the worse outcome: an upload that appears to work,
+   * is written to /tmp, and is a broken video by the time a student opens the lesson.
+   *
+   * `VERCEL` is set on every Vercel build and runtime; UPLOAD_DIR is the escape hatch
+   * for a host that genuinely does have a persistent disk mounted somewhere.
+   */
+  if (process.env.VERCEL && !process.env.UPLOAD_DIR) {
+    return Response.json(
+      {
+        error:
+          "This deployment has nowhere to keep uploads. Add Blob storage and set BLOB_READ_WRITE_TOKEN, then try again.",
+      },
+      { status: 501 },
+    );
+  }
+
   const form = await request.formData();
   const file = form.get("file");
   if (!(file instanceof File)) {
