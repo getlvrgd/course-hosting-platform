@@ -9,6 +9,23 @@ import { get } from "@vercel/blob";
 import { isBlobUrl, localPathFor } from "./storage";
 
 /**
+ * How much of an open-ended range to actually answer with.
+ *
+ * A browser opens a video with `Range: bytes=0-` — "everything from here" — and taking
+ * that literally means streaming a whole lesson through one function call. On a
+ * serverless host that call is killed long before a 300MB video finishes, so the
+ * player sits there and never starts.
+ *
+ * HTTP allows a server to return *less* than was asked for, which is what every decent
+ * video server does: answer a bounded chunk, let the browser come back for the next.
+ * Every request then stays short, whatever the size of the file.
+ *
+ * Four megabytes is a few seconds of video — enough that a player is not making
+ * constant requests, small enough to be well inside any timeout.
+ */
+const CHUNK_BYTES = 4 * 1024 * 1024;
+
+/**
  * Handing a stored file back to the browser.
  *
  * Shared by the two routes that do it — `/api/files` for attachments, and `/api/watch`
@@ -77,7 +94,10 @@ export async function serveLocalFile(
     const match = /^bytes=(\d*)-(\d*)$/.exec(range.trim());
     if (match) {
       const start = match[1] ? Number(match[1]) : 0;
-      const end = match[2] ? Math.min(Number(match[2]), size - 1) : size - 1;
+      // An open-ended range is answered a chunk at a time — see CHUNK_BYTES.
+      const end = match[2]
+        ? Math.min(Number(match[2]), size - 1)
+        : Math.min(start + CHUNK_BYTES - 1, size - 1);
       if (start >= size || start > end) {
         return new Response("Range not satisfiable", {
           status: 416,
@@ -133,9 +153,20 @@ export async function proxyRemoteFile(
 
   if (isBlobUrl(url)) {
     try {
+      // The same bounding as the local path: an open-ended range is rewritten into a
+      // chunk before it is asked for, so one request never tries to move a whole
+      // lesson through a function that will be killed part way.
+      const bounded = (() => {
+        if (!range) return undefined;
+        const match = /^bytes=(\d*)-(\d*)$/.exec(range.trim());
+        if (!match || match[2]) return range;
+        const start = match[1] ? Number(match[1]) : 0;
+        return `bytes=${start}-${start + CHUNK_BYTES - 1}`;
+      })();
+
       const result = await get(url, {
         access: "private",
-        ...(range ? { headers: { Range: range } } : {}),
+        ...(bounded ? { headers: { Range: bounded } } : {}),
       });
       if (!result || !result.stream) {
         return new Response("Not found", { status: 404 });

@@ -29,6 +29,12 @@ import { proxyRemoteFile, serveLocalFile } from "@/lib/serve";
  * "right-click, Save as" to "deliberately set out to rip it", which is the honest
  * ceiling for anything short of DRM.
  */
+/**
+ * Streaming has to be allowed to take longer than a page render. Sixty seconds is the
+ * ceiling on Vercel's Hobby plan and far more than a bounded chunk ever needs.
+ */
+export const maxDuration = 60;
+
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ lessonId: string }> },

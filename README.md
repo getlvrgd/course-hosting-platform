@@ -419,6 +419,16 @@ Two things follow:
   one as its first act and throws without it, whatever else is configured — a store
   connected with only `BLOB_STORE_ID` and OIDC cannot mint browser upload tokens. Take
   it from the store's **.env.local** tab in Vercel.
+- **Ranges are answered a chunk at a time.** A browser opens a video with
+  `Range: bytes=0-` — "everything from here" — and taking that literally means moving a
+  whole lesson through one function call, which a serverless host kills long before
+  playback starts. HTTP allows a server to return less than was asked for, so an
+  open-ended range gets 4MB and the browser comes back for the next. Every request
+  stays short whatever the size of the file. An explicit range is still honoured
+  exactly, so seeking is unaffected.
+- **A code-gated *download* of a very large file may still time out**, since a download
+  asks for the whole thing in one request and there is no signed-URL path for a private
+  blob to hand the browser instead. Playback is unaffected.
 - **Every byte of video goes through the function.** There is no CDN path for a private
   blob, so the bandwidth is yours in all three download modes, not only the protected
   ones.

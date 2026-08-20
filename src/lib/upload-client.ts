@@ -64,8 +64,14 @@ export async function uploadFile(
   return (await response.json()) as StoredFile;
 }
 
-/** How wide the grabbed still is stored. A thumbnail is never shown larger than this. */
-const POSTER_WIDTH = 480;
+/**
+ * How wide the grabbed still is stored.
+ *
+ * The player is the widest place it appears — a poster fills the video frame until
+ * somebody presses play, and at 480px that was a visibly blurry rectangle on any
+ * ordinary screen. 1280 is sharp there and still only tens of kilobytes as JPEG.
+ */
+const POSTER_WIDTH = 1280;
 const POSTER_QUALITY = 0.72;
 
 export type VideoProbe = {
