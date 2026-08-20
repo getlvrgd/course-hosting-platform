@@ -18,7 +18,10 @@ export async function POST(request: Request) {
 
   if (!blobConfigured()) {
     return Response.json(
-      { error: "Blob storage isn't configured. Set BLOB_READ_WRITE_TOKEN." },
+      {
+        error:
+          "No BLOB_READ_WRITE_TOKEN. A blob store connected without one cannot mint upload tokens.",
+      },
       { status: 501 },
     );
   }
@@ -46,6 +49,12 @@ export async function POST(request: Request) {
     });
     return Response.json(result);
   } catch (error) {
+    /*
+     * Logged as well as returned. The browser SDK replaces whatever comes back here
+     * with its own "Failed to retrieve the client token", so this line in the host's
+     * runtime log is the only place the actual reason survives.
+     */
+    console.error("[upload] could not mint a client token:", error);
     return Response.json(
       { error: error instanceof Error ? error.message : "Upload failed." },
       { status: 400 },

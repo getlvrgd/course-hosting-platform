@@ -27,20 +27,21 @@ import { UPLOAD_PREFIX, type StoredFile } from "./storage-shared";
 export { UPLOAD_PREFIX, type StoredFile };
 
 /**
- * Whether blob storage is available, by either of the two ways it authenticates.
+ * Whether an upload from the browser can actually happen.
  *
- *   * `BLOB_READ_WRITE_TOKEN` — a long-lived token, what an older store hands out and
- *     what you set by hand for a local machine.
- *   * `BLOB_STORE_ID` — the newer setup, where Vercel proves the deployment's identity
- *     with a short-lived OIDC token it injects itself. There is no read-write token to
- *     find, which is exactly why looking only for one reported a correctly configured
- *     store as "not set up".
+ * Specifically a **read-write token**, not merely "a blob store exists". The SDK
+ * authenticates two ways — a long-lived `BLOB_READ_WRITE_TOKEN`, or OIDC using
+ * `BLOB_STORE_ID` with a short-lived token the platform injects — but the client
+ * upload flow is not one of the two. `handleUpload` resolves a read-write token as its
+ * very first act and throws without one, whatever else is configured.
  *
- * The SDK picks whichever it finds; this only has to agree with it about whether
- * uploading is possible at all.
+ * So a store connected the newer way, publishing `BLOB_STORE_ID` and
+ * `BLOB_WEBHOOK_PUBLIC_KEY` and no token, is a store this app cannot upload to. Saying
+ * "configured" because *something* blob-shaped is present would put an Upload button
+ * on screen that fails at the moment somebody picks a file — which is the failure this
+ * check exists to prevent.
  */
-export const blobConfigured = () =>
-  Boolean(process.env.BLOB_READ_WRITE_TOKEN) || Boolean(process.env.BLOB_STORE_ID);
+export const blobConfigured = () => Boolean(process.env.BLOB_READ_WRITE_TOKEN);
 
 /**
  * Whether this deployment can accept an upload at all.

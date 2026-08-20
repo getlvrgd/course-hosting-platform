@@ -415,8 +415,9 @@ function Attachments({
 
       {!canUpload ? (
         <p className="text-[12px] text-ink-muted">
-          Attaching files needs Blob storage on this deployment — add it from the
-          Storage tab and redeploy.
+          Attaching files needs a <span className="font-mono">BLOB_READ_WRITE_TOKEN</span> —
+          take it from your Blob store&apos;s <span className="font-mono">.env.local</span>{" "}
+          tab, add it to the project and redeploy.
         </p>
       ) : (
       <label

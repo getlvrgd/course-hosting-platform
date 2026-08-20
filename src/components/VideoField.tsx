@@ -208,9 +208,11 @@ export function VideoField({
               Uploading isn&apos;t set up on this deployment
             </p>
             <p className="mt-0.5 text-[12px] text-ink-secondary">
-              There is nowhere to keep the file. Add Blob storage to the project from
-              the Storage tab and redeploy — uploads then go straight there from the
-              browser, at any size. Embedding a link works either way.
+              Uploading needs a <span className="font-mono">BLOB_READ_WRITE_TOKEN</span>.
+              Open your Blob store in Vercel, take it from the{" "}
+              <span className="font-mono">.env.local</span> tab of the Quickstart, add it
+              to the project&apos;s environment variables and redeploy. A store connected
+              without one cannot issue upload tokens. Embedding a link works either way.
             </p>
           </div>
         )}
